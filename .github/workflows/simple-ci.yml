@@ -1,0 +1,80 @@
+name: Java CI pipeline e-come
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+#
+#jobs:
+#  build:
+#    runs-on: ubuntu-latest
+#    permissions:
+#      contents: read
+#      packages: write
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-services: ${{ steps.detect.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find modified services
+        id: detect
+        run: |
+          # Получаем список изменённых файлов
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+          
+          # Проверяем, какие сервисы затронуты
+          CHANGED_SERVICES=""
+          for SERVICE in service1 service2 service3; do
+            if echo "$CHANGED_FILES" | grep -q "^services/$SERVICE/"; then
+              CHANGED_SERVICES="$CHANGED_SERVICES $SERVICE"
+            fi
+          done
+          
+          # Если сервисы не изменились, но изменился docker-compose.yml или .github, проверяем всё
+          if [ -z "$CHANGED_SERVICES" ] && (echo "$CHANGED_FILES" | grep -qE "^(docker-compose.yml|\.github/)"); then
+            CHANGED_SERVICES="service1 service2 service3"
+          fi
+          
+          # Если ничего не изменилось (например, изменился README), пропускаем сборку
+          if [ -z "$CHANGED_SERVICES" ]; then
+            echo "No relevant changes detected, skipping build."
+            exit 0
+          fi
+          
+          echo "changed=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
+
+  build-changed:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.changed-services != ''
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.changed-services) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          ########## my piece ######################################################################
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+          ################################################################################
+      - name: Build ${{ matrix.service }}
+        working-directory: ./services/${{ matrix.service }}
+        run: ./gradlew clean bootJar
