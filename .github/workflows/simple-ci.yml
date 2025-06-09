@@ -29,7 +29,7 @@ jobs:
           # Если это первый коммит в репозитории, проверяем все сервисы
           if [ $(git rev-list --count HEAD) -eq 1 ]; then
             echo "First commit in the repo, building all services."
-            echo "changed=$(echo "service1 service2 service3" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
+            echo "changed=$(echo "config-server" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -44,7 +44,7 @@ jobs:
 
           # Проверяем, какие сервисы затронуты
           CHANGED_SERVICES=()
-          for SERVICE in service1 service2 service3; do
+          for SERVICE in config-server; do
             if echo "$CHANGED_FILES" | grep -q "^services/$SERVICE/"; then
               CHANGED_SERVICES+=("$SERVICE")
             fi
@@ -52,7 +52,7 @@ jobs:
 
           # Если изменились docker-compose.yml или файлы CI, собираем всё
           if [ ${#CHANGED_SERVICES[@]} -eq 0 ] && echo "$CHANGED_FILES" | grep -qE "^(docker-compose.yml|\.github/workflows/)"; then
-            CHANGED_SERVICES=("service1" "service2" "service3")
+            CHANGED_SERVICES=("config-server")
           fi
 
           # Если изменений нет (например, обновили README), пропускаем сборку
