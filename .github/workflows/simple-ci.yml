@@ -19,10 +19,10 @@ jobs:
       - name: Find modified services
         id: detect
         run: |
-          ALL_SERVICES=$(ls -d services/*/ | cut -d'/' -f2)
+          ALL_SERVICES=$(ls -d services/*/ | cut -d'/' -f2 | tr '\n' ' ')
           
           if [ $(git rev-list --count HEAD) -eq 1 ]; then
-            echo "changed=$(echo "$ALL_SERVICES" | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+            echo "changed=$(echo "$ALL_SERVICES" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -65,11 +65,13 @@ jobs:
         id: verify-dir
         run: |
           SERVICE_DIR="services/${{ matrix.service }}"
+          echo "Checking directory: $SERVICE_DIR"
           if [ ! -d "$SERVICE_DIR" ]; then
             echo "::error::Directory $SERVICE_DIR does not exist!"
+            ls -la services/ || true
             exit 1
           fi
-          echo "Service directory $SERVICE_DIR verified"
+          echo "Directory exists. Contents:"
           ls -la "$SERVICE_DIR"
 
       - name: Set up JDK 21
@@ -92,9 +94,10 @@ jobs:
 
       - name: Prepare Gradle Wrapper
         run: |
-          cd services/${{ matrix.service }}
+          cd "services/${{ matrix.service }}"
           if [ ! -f "gradlew" ]; then
             echo "::error::gradlew not found in services/${{ matrix.service }}"
+            ls -la || true
             exit 1
           fi
           chmod +x gradlew
@@ -102,5 +105,5 @@ jobs:
 
       - name: Build with Gradle
         run: |
-          cd services/${{ matrix.service }}
+          cd "services/${{ matrix.service }}"
           ./gradlew clean bootJar
