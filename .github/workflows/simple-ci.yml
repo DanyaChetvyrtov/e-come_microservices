@@ -19,7 +19,7 @@ jobs:
       - name: Find modified services
         id: detect
         run: |
-          # Автоматически определяем все сервисы в папке services/
+          # Автоматически определяем все сервисы
           ALL_SERVICES=$(ls -d services/*/ | cut -d'/' -f2)
           
           # Если это первый коммит в репозитории, проверяем все сервисы
@@ -71,21 +71,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Debug directory structure
+      - name: Verify service directory exists
+        id: check-dir
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Services directory content:"
-          ls -la services/
-          echo "Target service directory content:"
-          ls -la services/${{ matrix.service }}
+          if [ ! -d "services/${{ matrix.service }}" ]; then
+            echo "::error::Directory services/${{ matrix.service }} does not exist!"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up JDK 21
+        if: steps.check-dir.outputs.exists == 'true'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
       - name: Cache Gradle dependencies
+        if: steps.check-dir.outputs.exists == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -98,14 +103,18 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Make gradlew executable
+        if: steps.check-dir.outputs.exists == 'true'
         working-directory: ./services/${{ matrix.service }}
         run: |
           if [ -f "gradlew" ]; then
             chmod +x gradlew
+            echo "Made gradlew executable"
           else
-            echo "gradlew not found"
+            echo "::error::gradlew not found in services/${{ matrix.service }}"
+            exit 1
           fi
 
-      - name: Build ${{ matrix.service }}
+      - name: Build with Gradle
+        if: steps.check-dir.outputs.exists == 'true'
         working-directory: ./services/${{ matrix.service }}
         run: ./gradlew clean bootJar
