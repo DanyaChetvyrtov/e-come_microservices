@@ -1,80 +1,27 @@
-name: Java CI pipeline e-come
+name: Build and Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      changed-services: ${{ steps.detect.outputs.changed }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Find modified services
-        id: detect
-        run: |
-          ALL_SERVICES=$(find services -maxdepth 1 -type d -name '[!.]*' | sed 's|services/||' | tr '\n' ' ')
-          echo "Found services: $ALL_SERVICES"
-          echo "changed=$(echo "$ALL_SERVICES" | jq -R -s -c 'split(" ") | map(select(. != ""))')" >> $GITHUB_OUTPUT
-
-  build-service:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.changed-services != ''
+  build-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: ${{ fromJSON(needs.detect-changes.outputs.changed-services) }}
+        service-dir: [ "config-server" ]  # Укажи свои сервисы
     steps:
       - uses: actions/checkout@v4
 
-      - name: Debug directory structure
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Full services structure:"
-          ls -R services/
-          echo "Checking config-server:"
-          ls -la services/config-server || true
-
-      - name: Verify directory path
-        id: verify-path
-        run: |
-          FULL_PATH="$GITHUB_WORKSPACE/services/${{ matrix.service }}"
-          echo "Checking path: $FULL_PATH"
-          if [ ! -d "$FULL_PATH" ]; then
-            echo "::error::Directory $FULL_PATH does not exist!"
-            exit 1
-          fi
-          echo "directory_exists=true" >> $GITHUB_OUTPUT
-
-      - name: Set up JDK 21
-        if: steps.verify-path.outputs.directory_exists == 'true'
-        uses: actions/setup-java@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v3
         with:
-          java-version: '21'
+          java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
 
-      - name: Cache Gradle
-        if: steps.verify-path.outputs.directory_exists == 'true'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            services/${{ matrix.service }}/.gradle
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}-${{ matrix.service }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-${{ matrix.service }}
-            ${{ runner.os }}-gradle-
-
-      - name: Build service
-        if: steps.verify-path.outputs.directory_exists == 'true'
-        working-directory: $GITHUB_WORKSPACE/services/${{ matrix.service }}
-        run: |
-          chmod +x gradlew
-          ./gradlew clean bootJar
+      - name: Build and Test
+        working-directory: ./services/${{ matrix.service-dir }}
+        run: ./gradlew build
