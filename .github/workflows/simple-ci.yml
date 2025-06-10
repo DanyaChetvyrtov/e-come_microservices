@@ -15,17 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Make gradlew executable
-        shell: bash
-        run: chmod +x gradlew
-
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          cache: 'gradle'
+
+      - name: Make gradlew executable  # 🔥 Важное исправление!
+        working-directory: ./services/${{ matrix.service-dir }}
+        run: chmod +x gradlew  # Даём права на выполнение
 
       - name: Build and Test
         working-directory: ./services/${{ matrix.service-dir }}
