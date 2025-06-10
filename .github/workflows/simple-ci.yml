@@ -61,11 +61,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify directory structure
+      - name: Verify service directory
+        id: verify-dir
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Checking services/${{ matrix.service }}"
-          ls -la services/${{ matrix.service }} || (echo "Directory services/${{ matrix.service }} not found!" && exit 1)
+          SERVICE_DIR="services/${{ matrix.service }}"
+          if [ ! -d "$SERVICE_DIR" ]; then
+            echo "::error::Directory $SERVICE_DIR does not exist!"
+            exit 1
+          fi
+          echo "Service directory $SERVICE_DIR verified"
+          ls -la "$SERVICE_DIR"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -88,13 +93,12 @@ jobs:
       - name: Prepare Gradle Wrapper
         run: |
           cd services/${{ matrix.service }}
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            ./gradlew --version
-          else
+          if [ ! -f "gradlew" ]; then
             echo "::error::gradlew not found in services/${{ matrix.service }}"
             exit 1
           fi
+          chmod +x gradlew
+          ./gradlew --version
 
       - name: Build with Gradle
         run: |
