@@ -90,7 +90,7 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Prepare Gradle Wrapper
-        working-directory: ./services/${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
         run: |
           if [ -f "gradlew" ]; then
             chmod +x gradlew
